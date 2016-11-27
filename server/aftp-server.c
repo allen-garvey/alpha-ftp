@@ -34,12 +34,13 @@ void error(char *msg){
 
 int main(int argc, char **argv){
   /* 
-   * check command line arguments 
+   * validate command line arguments 
    */
   if(argc != 2){
     printUsage(argv[0]);
     exit(1);
   }
+  //get port number from command line arguments
   int portNum = atoi(argv[1]);
   //check that portNum is valid - if atoi fails, 0 is returned
   if(portNum <= 0 || portNum > 65535){
@@ -50,9 +51,9 @@ int main(int argc, char **argv){
   /* 
    * socket: create the parent socket 
    */
-  int parentfd = socket(AF_INET, SOCK_STREAM, 0);
-  if (parentfd < 0){
-    error("ERROR opening socket");
+  int parentSocketFileDescriptor = socket(AF_INET, SOCK_STREAM, 0);
+  if (parentSocketFileDescriptor < 0){
+    error("ERROR opening TCP socket");
   }
 
   /* setsockopt: Handy debugging trick that lets 
@@ -60,35 +61,34 @@ int main(int argc, char **argv){
    * otherwise we have to wait about 20 secs. 
    * Eliminates "ERROR on binding: Address already in use" error. 
    */
-  int optval = 1;
-  setsockopt(parentfd, SOL_SOCKET, SO_REUSEADDR, (const void *)&optval , sizeof(int));
+  int optval = 1; //doesn't really do anything, but required for setsockopt
+  setsockopt(parentSocketFileDescriptor, SOL_SOCKET, SO_REUSEADDR, (const void *)&optval , sizeof(int));
 
   /*
    * build the server's Internet address
    */
-  struct sockaddr_in serveraddr; /* server's addr */
-  bzero((char *) &serveraddr, sizeof(serveraddr));
+  struct sockaddr_in serverAddress; /* server's addr */
+  bzero((char *) &serverAddress, sizeof(serverAddress));
 
-  /* this is an Internet address */
-  serveraddr.sin_family = AF_INET;
-
-  /* let the system figure out our IP address */
-  serveraddr.sin_addr.s_addr = htonl(INADDR_ANY);
-
-  /* this is the port we will listen on */
-  serveraddr.sin_port = htons((unsigned short)portNum);
+  //set internet address
+  serverAddress.sin_family = AF_INET;
+  //use system's ip address
+  serverAddress.sin_addr.s_addr = htonl(INADDR_ANY);
+  //set listen port
+  serverAddress.sin_port = htons((unsigned short)portNum);
 
   /* 
    * bind: associate the parent socket with a port 
    */
-  if(bind(parentfd, (struct sockaddr *) &serveraddr, sizeof(serveraddr)) < 0){
-    error("ERROR on binding");
+  if(bind(parentSocketFileDescriptor, (struct sockaddr *) &serverAddress, sizeof(serverAddress)) < 0){
+    fprintf(stderr, "Could not bind to port %d\n", portNum);
+    exit(1);
   }
 
   /* 
    * listen: make this socket ready to accept connection requests 
    */
-  if (listen(parentfd, 5) < 0){ /* allow 5 requests to queue up */ 
+  if (listen(parentSocketFileDescriptor, 5) < 0){ /* allow 5 requests to queue up */ 
     error("ERROR on listen");
   }
 
@@ -96,48 +96,37 @@ int main(int argc, char **argv){
    * main loop: wait for a connection request, echo input line, 
    * then close connection.
    */
-  struct sockaddr_in clientaddr; /* client addr */
-  uint clientlen = sizeof(clientaddr);
-  char buf[BUFFER_SIZE]; /* message buffer */
+  struct sockaddr_in clientAddress; /* client addr */
+  uint clientAddressLength = sizeof(clientAddress);
+  //set aside memory for messages to/from client
+  char messageBuffer[BUFFER_SIZE];
   while (1) {
     /* 
      * accept: wait for a connection request 
      */
-    int childfd = accept(parentfd, (struct sockaddr *) &clientaddr, &clientlen);
-    if (childfd < 0){
-      error("ERROR on accept");
-    }
-    
-    /* 
-     * gethostbyaddr: determine who sent the message 
-     */
-    struct hostent *hostp = gethostbyaddr((const char *)&clientaddr.sin_addr.s_addr, sizeof(clientaddr.sin_addr.s_addr), AF_INET);
-    if (hostp == NULL){
-      error("ERROR on gethostbyaddr");
-    }
-    char *hostaddrp = inet_ntoa(clientaddr.sin_addr);
-    if(hostaddrp == NULL){
-      error("ERROR on inet_ntoa\n");
+    int clientFileDescriptor = accept(parentSocketFileDescriptor, (struct sockaddr *) &clientAddress, &clientAddressLength);
+    if(clientFileDescriptor < 0){
+      error("ERROR while trying to accept connection");
     }
     
     /* 
      * read: read input string from the client
      */
-    bzero(buf, BUFFER_SIZE);
-    int n = read(childfd, buf, BUFFER_SIZE);
-    if (n < 0){
+    bzero(messageBuffer, BUFFER_SIZE);
+    int charCountTransferred = read(clientFileDescriptor, messageBuffer, BUFFER_SIZE);
+    if(charCountTransferred < 0){
       error("ERROR reading from socket");
     }
-    printf("server received %d bytes: %s", n, buf);
+    printf("server received %d bytes: %s", charCountTransferred, messageBuffer);
     
     /* 
      * write: echo the input string back to the client 
      */
-    n = write(childfd, buf, strlen(buf));
-    if (n < 0){
+    charCountTransferred = write(clientFileDescriptor, messageBuffer, strlen(messageBuffer));
+    if(charCountTransferred < 0){
       error("ERROR writing to socket");
     }
-
-    close(childfd);
+    //close connection
+    close(clientFileDescriptor);
   }
 }
