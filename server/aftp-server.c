@@ -137,19 +137,19 @@ void readFromSocketIntoBuffer(int clientFileDescriptor, char messageBuffer[MESSA
 //requires POSIX compatible OS
 //based on: http://stackoverflow.com/questions/4204666/how-to-list-files-in-a-directory-in-a-c-program
 void sendDirectoryListing(int clientFileDescriptor){
-  struct dirent *directoryItem;
+  struct dirent *directoryEntry;
   DIR *directory = opendir(".");
   //need count of files to make sure there was at least one file, otherwise we need to send empty message
-  int directoryItemsCount = 0;
+  int directoryEntriesCount = 0;
   if(directory){
-    while((directoryItem = readdir(directory)) != NULL){
-      sendToSocket(clientFileDescriptor, directoryItem->d_name);
+    while((directoryEntry = readdir(directory)) != NULL){
+      sendToSocket(clientFileDescriptor, directoryEntry->d_name);
       sendToSocket(clientFileDescriptor, "\n");
-      directoryItemsCount++;
+      directoryEntriesCount++;
     }
     closedir(directory);
     //if directory is empty, make sure at least something is sent to client
-    if(directoryItemsCount == 0){
+    if(directoryEntriesCount == 0){
       sendToSocket(clientFileDescriptor, "\n");
     }
   }
@@ -185,13 +185,9 @@ int main(int argc, char **argv){
     //read message sent from client
     readFromSocketIntoBuffer(clientFileDescriptor, messageBuffer);
     
-    /* 
-     * write: echo the input string back to the client 
-     */
-    int charCountTransferred = write(clientFileDescriptor, messageBuffer, strlen(messageBuffer));
-    if(charCountTransferred < 0){
-      error("ERROR writing to socket");
-    }
+
+    //send response to client
+    sendDirectoryListing(clientFileDescriptor);
     //close connection
     close(clientFileDescriptor);
   }
