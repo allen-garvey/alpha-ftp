@@ -22,7 +22,7 @@
 //number of requests that allowed to queue up waiting for server to become available
 #define REQUEST_QUEUE_SIZE 8
 //character sequence to signify end of message sent
-#define MESSAGE_END_STRING "\n\0\0aftp\0"
+#define MESSAGE_END_STRING "\n"
 
 /*
  * Error functions
@@ -32,6 +32,8 @@ void printUsage(char *programName){
   fprintf(stderr, "usage: %s <port>\n", programName);
 }
 
+//prints error message and exits program with error code
+//based on: http://www.cs.cmu.edu/afs/cs/academic/class/15213-f99/www/class26/tcpserver.c
 void error(char *msg){
   perror(msg);
   exit(1);
@@ -40,8 +42,18 @@ void error(char *msg){
 /*
  * Validate command-line arguments
  */
+//validates argument is valid port number
+//returns 1 (true) if it is valid, otherwise 0 (false)
+int isPortNumValid(int portNum){
+  if(portNum > 0 && portNum <= 65535){
+    return 1;
+  }
+  return 0;
+}
+
 //Validates command-line arguments for port number to listen on
 //returns port number to listen on
+//based on: http://www.cs.cmu.edu/afs/cs/academic/class/15213-f99/www/class26/tcpserver.c
 int validateCommandLineArguments(int argc, char **argv){
   if(argc != 2){
     printUsage(argv[0]);
@@ -50,7 +62,7 @@ int validateCommandLineArguments(int argc, char **argv){
   //get port number from command line arguments
   int portNum = atoi(argv[1]);
   //check that portNum is valid - if atoi fails, 0 is returned
-  if(portNum <= 0 || portNum > 65535){
+  if(!isPortNumValid(portNum)){
     printUsage(argv[0]);
     exit(1);
   }
@@ -61,6 +73,7 @@ int validateCommandLineArguments(int argc, char **argv){
  * Server setup functions
  */
 //builds server address we will use to accept connections
+//based on: http://www.cs.cmu.edu/afs/cs/academic/class/15213-f99/www/class26/tcpserver.c
 void buildServerAddress(struct sockaddr_in *serverAddress, int portNum){
   //initialize memory by setting it to all 0s
   bzero((char *) serverAddress, sizeof(*serverAddress));
@@ -74,6 +87,7 @@ void buildServerAddress(struct sockaddr_in *serverAddress, int portNum){
 
 //starts the server listening on portNum on IP address determined by operating system
 //returns fileDescriptor for the listening socket
+//based on: http://www.cs.cmu.edu/afs/cs/academic/class/15213-f99/www/class26/tcpserver.c
 int initializeServer(int portNum){
    //create the server socket 
   int serverSocketFileDescriptor = socket(AF_INET, SOCK_STREAM, 0);
@@ -121,6 +135,7 @@ void sendToSocket(int clientFileDescriptor, char *message){
 
 //reads message from client identified by file descriptor and puts message into 
 //buffer supplied as second argument
+//based on: http://www.cs.cmu.edu/afs/cs/academic/class/15213-f99/www/class26/tcpserver.c
 void readFromSocketIntoBuffer(int clientFileDescriptor, char messageBuffer[MESSAGE_BUFFER_SIZE]){
     //zero the buffer so that old messages do not remain
     bzero(messageBuffer, MESSAGE_BUFFER_SIZE);
@@ -153,6 +168,15 @@ void sendDirectoryListing(int clientFileDescriptor){
   }
   //send message end escape sequence so client knows that is the end of the message
   sendToSocket(clientFileDescriptor, MESSAGE_END_STRING);
+}
+
+/*
+* Send file contents to client functions (-g)
+*/
+//sends contents of file identified by fileName argument over socket to client
+//indentified by clientFileDescriptor
+void sendFileContents(int clientFileDescriptor, char *fileName){
+
 }
 
 
