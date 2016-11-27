@@ -34,6 +34,26 @@ void error(char *msg){
 }
 
 /*
+ * Validate command-line arguments
+ */
+//Validates command-line arguments for port number to listen on
+//returns port number to listen on
+int validateCommandLineArguments(int argc, char **argv){
+  if(argc != 2){
+    printUsage(argv[0]);
+    exit(1);
+  }
+  //get port number from command line arguments
+  int portNum = atoi(argv[1]);
+  //check that portNum is valid - if atoi fails, 0 is returned
+  if(portNum <= 0 || portNum > 65535){
+    printUsage(argv[0]);
+    exit(1);
+  }
+  return portNum;
+}
+
+/*
  * Setup functions
  */
 //builds server address we will use to accept connections
@@ -84,20 +104,9 @@ int initializeServer(int portNum){
 
 
 int main(int argc, char **argv){
-  /* 
-   * validate command line arguments 
-   */
-  if(argc != 2){
-    printUsage(argv[0]);
-    exit(1);
-  }
-  //get port number from command line arguments
-  int portNum = atoi(argv[1]);
-  //check that portNum is valid - if atoi fails, 0 is returned
-  if(portNum <= 0 || portNum > 65535){
-    printUsage(argv[0]);
-    exit(1);
-  }
+  //get port number from command-line arguments
+  //will print usage and exit if command-line arguments are invalid
+  int portNum = validateCommandLineArguments(argc, argv);
 
   //do server setup and start server listing on portNum
   int serverSocketFileDescriptor = initializeServer(portNum);
