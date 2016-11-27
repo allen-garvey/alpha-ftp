@@ -17,7 +17,8 @@
 
 //used for the buffer for messages sent to/from the client
 #define BUFFER_SIZE 1024
-
+//number of requests that allowed to queue up waiting for server to become available
+#define REQUEST_QUEUE_SIZE 8
 
 /*
  * Error functions
@@ -31,6 +32,56 @@ void error(char *msg){
   perror(msg);
   exit(1);
 }
+
+/*
+ * Setup functions
+ */
+//builds server address we will use to accept connections
+void buildServerAddress(struct sockaddr_in *serverAddress, int portNum){
+  //initialize memory by setting it to all 0s
+  bzero((char *) serverAddress, sizeof(*serverAddress));
+  //set internet address
+  serverAddress->sin_family = AF_INET;
+  //use system's ip address
+  serverAddress->sin_addr.s_addr = htonl(INADDR_ANY);
+  //set listen port
+  serverAddress->sin_port = htons((unsigned short)portNum);
+}
+
+//starts the server listening on portNum on IP address determined by operating system
+//returns fileDescriptor for the listening socket
+int initializeServer(int portNum){
+   //create the server socket 
+  int serverSocketFileDescriptor = socket(AF_INET, SOCK_STREAM, 0);
+  if (serverSocketFileDescriptor < 0){
+    error("ERROR opening TCP socket");
+  }
+
+  /* setsockopt: Handy debugging trick that lets 
+   * us rerun the server immediately after we kill it; 
+   * otherwise we have to wait about 20 secs. 
+   * Eliminates "ERROR on binding: Address already in use" error. 
+   */
+  int optval = 1; //doesn't really do anything, but required for setsockopt
+  setsockopt(serverSocketFileDescriptor, SOL_SOCKET, SO_REUSEADDR, (const void *)&optval , sizeof(int));
+
+  //build and initialize server address for ip address and port
+  struct sockaddr_in serverAddress;
+  buildServerAddress(&serverAddress, portNum);
+
+  //bind server to port
+  if(bind(serverSocketFileDescriptor, (struct sockaddr *) &serverAddress, sizeof(serverAddress)) < 0){
+    fprintf(stderr, "Could not bind to port %d\n", portNum);
+    exit(1);
+  }
+
+  //start server listening - set queue length to size of REQUEST_QUEUE_SIZE
+  if(listen(serverSocketFileDescriptor, REQUEST_QUEUE_SIZE) < 0){
+    error("ERROR on listen");
+  }
+  return serverSocketFileDescriptor;
+}
+
 
 int main(int argc, char **argv){
   /* 
@@ -48,49 +99,8 @@ int main(int argc, char **argv){
     exit(1);
   }
 
-  /* 
-   * socket: create the parent socket 
-   */
-  int parentSocketFileDescriptor = socket(AF_INET, SOCK_STREAM, 0);
-  if (parentSocketFileDescriptor < 0){
-    error("ERROR opening TCP socket");
-  }
-
-  /* setsockopt: Handy debugging trick that lets 
-   * us rerun the server immediately after we kill it; 
-   * otherwise we have to wait about 20 secs. 
-   * Eliminates "ERROR on binding: Address already in use" error. 
-   */
-  int optval = 1; //doesn't really do anything, but required for setsockopt
-  setsockopt(parentSocketFileDescriptor, SOL_SOCKET, SO_REUSEADDR, (const void *)&optval , sizeof(int));
-
-  /*
-   * build the server's Internet address
-   */
-  struct sockaddr_in serverAddress; /* server's addr */
-  bzero((char *) &serverAddress, sizeof(serverAddress));
-
-  //set internet address
-  serverAddress.sin_family = AF_INET;
-  //use system's ip address
-  serverAddress.sin_addr.s_addr = htonl(INADDR_ANY);
-  //set listen port
-  serverAddress.sin_port = htons((unsigned short)portNum);
-
-  /* 
-   * bind: associate the parent socket with a port 
-   */
-  if(bind(parentSocketFileDescriptor, (struct sockaddr *) &serverAddress, sizeof(serverAddress)) < 0){
-    fprintf(stderr, "Could not bind to port %d\n", portNum);
-    exit(1);
-  }
-
-  /* 
-   * listen: make this socket ready to accept connection requests 
-   */
-  if (listen(parentSocketFileDescriptor, 5) < 0){ /* allow 5 requests to queue up */ 
-    error("ERROR on listen");
-  }
+  //do server setup and start server listing on portNum
+  int serverSocketFileDescriptor = initializeServer(portNum);
 
   /* 
    * main loop: wait for a connection request, echo input line, 
@@ -104,7 +114,7 @@ int main(int argc, char **argv){
     /* 
      * accept: wait for a connection request 
      */
-    int clientFileDescriptor = accept(parentSocketFileDescriptor, (struct sockaddr *) &clientAddress, &clientAddressLength);
+    int clientFileDescriptor = accept(serverSocketFileDescriptor, (struct sockaddr *) &clientAddress, &clientAddressLength);
     if(clientFileDescriptor < 0){
       error("ERROR while trying to accept connection");
     }
@@ -129,4 +139,7 @@ int main(int argc, char **argv){
     //close connection
     close(clientFileDescriptor);
   }
+
+  //stop server listening
+  close(serverSocketFileDescriptor);
 }
