@@ -291,7 +291,7 @@ enum CommandType parseCommand(char messageBuffer[MESSAGE_BUFFER_SIZE]){
     return COMMAND_UNRECOGNIZED;
   }
   //check for -l (list)
-  if(length == (COMMAND_PRELUDE_LENGTH + COMMAND_LENGTH) && messageBuffer[COMMAND_PRELUDE_LENGTH + 1] == 'l'){
+  if(strcmp(messageBuffer, "CONTROL: -l") == 0){
     return COMMAND_LIST;
   }
   //add 2 to total length because fileName should be at least 1 character, and is separated from command by a space
