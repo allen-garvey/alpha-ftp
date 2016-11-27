@@ -15,13 +15,19 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 
+//used for the buffer for messages sent to/from the client
 #define BUFFER_SIZE 1024
 
 
 /*
- * error - wrapper for perror
+ * Error functions
  */
-void error(char *msg) {
+//prints program usage
+void printUsage(char *programName){
+  fprintf(stderr, "usage: %s <port>\n", programName);
+}
+
+void error(char *msg){
   perror(msg);
   exit(1);
 }
@@ -30,11 +36,16 @@ int main(int argc, char **argv){
   /* 
    * check command line arguments 
    */
-  if (argc != 2) {
-    fprintf(stderr, "usage: %s <port>\n", argv[0]);
+  if(argc != 2){
+    printUsage(argv[0]);
     exit(1);
   }
   int portNum = atoi(argv[1]);
+  //check that portNum is valid - if atoi fails, 0 is returned
+  if(portNum <= 0 || portNum > 65535){
+    printUsage(argv[0]);
+    exit(1);
+  }
 
   /* 
    * socket: create the parent socket 
