@@ -18,6 +18,8 @@
 #include <dirent.h>
 //for file opening errors
 #include <errno.h>
+//for character functions
+#include <ctype.h>
 
 //used for the buffer for messages sent to/from the client
 #define MESSAGE_BUFFER_SIZE 1024
@@ -26,6 +28,12 @@
 //character sequence to signify end of message sent
 #define MESSAGE_END_STRING "\n"
 
+//command parsing constants
+//length of CONTROL:\s
+#define COMMAND_PRELUDE_LENGTH 9
+//length of -l or -g
+#define COMMAND_LENGTH 2
+//CONTROL:\s-l\sa\n
 /*
  * Error functions
  */
@@ -197,6 +205,7 @@ void sendFileOpenError(int clientFileDescriptor, int errorNum){
 //sends contents of file identified by fileName argument over socket to client
 //identified by clientFileDescriptor
 //based on: http://stackoverflow.com/questions/3501338/c-read-file-line-by-line
+//and http://man7.org/linux/man-pages/man3/errno.3.html
 void sendFileContents(int clientFileDescriptor, char *fileName){
   //attempt to open to specified file for reading
   FILE *filePointer = fopen(fileName, "r");
@@ -219,6 +228,49 @@ void sendFileContents(int clientFileDescriptor, char *fileName){
   free(line);
   //close file
   fclose(filePointer);
+}
+
+/*
+* Parse message command functions
+*/
+
+//removes trailing '\n' char from message
+void chompMessage(char messageBuffer[MESSAGE_BUFFER_SIZE]){
+  int length = strlen(messageBuffer);
+  //check to make sure buffer has length first
+  if(length == 0){
+    return;
+  }
+  //remove trailing '\n' by changing it to null char
+  if(messageBuffer[length - 1] == '\n'){
+    messageBuffer[length - 1] = '\0';
+  }
+}
+
+//used as return type from parser - either get file contents, 
+//list directory, or command is unrecognized
+enum CommandType {COMMAND_LIST, COMMAND_GET, COMMAND_UNRECOGNIZED};
+
+//parses command in message buffer for type of command, signified by return value
+enum CommandType parseCommand(char messageBuffer[MESSAGE_BUFFER_SIZE]){
+  //check to make sure message in buffer is long enough to be a command
+  int length = strlen(messageBuffer);
+  //first char of command should be '-'
+  if(length < (COMMAND_PRELUDE_LENGTH + COMMAND_LENGTH) && messageBuffer[COMMAND_PRELUDE_LENGTH] != '-'){
+    //if too short to contain command, it must be unrecognized
+    return COMMAND_UNRECOGNIZED;
+  }
+  //check for -l (list)
+  if(length == (COMMAND_PRELUDE_LENGTH + COMMAND_LENGTH) && messageBuffer[COMMAND_PRELUDE_LENGTH + 1] == 'l'){
+    return COMMAND_LIST;
+  }
+  //add 2 to total length because fileName should be at least 1 character, and is separated from command by a space
+  else if(length >= (COMMAND_PRELUDE_LENGTH + COMMAND_LENGTH + 2) && messageBuffer[COMMAND_PRELUDE_LENGTH + 1] == 'g' && !isspace(messageBuffer[COMMAND_PRELUDE_LENGTH + COMMAND_LENGTH + 1])){
+    return COMMAND_GET;
+  }
+
+  //if we're here, command must be unrecognized
+  return COMMAND_UNRECOGNIZED;
 }
 
 
@@ -247,11 +299,23 @@ int main(int argc, char **argv){
     
     //read message sent from client
     readFromSocketIntoBuffer(clientFileDescriptor, messageBuffer);
+    //remove trailing '\n' char
+    chompMessage(messageBuffer);
     
+    enum CommandType commandType = parseCommand(messageBuffer);
+    if(commandType == COMMAND_UNRECOGNIZED){
+      sendToSocket(clientFileDescriptor, "Command unrecognized");
+    }
+    else if(commandType == COMMAND_LIST){
+      sendDirectoryListing(clientFileDescriptor);
+    }
+    else if(commandType == COMMAND_GET){
+      sendFileContents(clientFileDescriptor, messageBuffer);
+    }
 
     //send response to client
     //sendDirectoryListing(clientFileDescriptor);
-    sendFileContents(clientFileDescriptor, messageBuffer);
+    //sendFileContents(clientFileDescriptor, messageBuffer);
     //close connection
     close(clientFileDescriptor);
   }
