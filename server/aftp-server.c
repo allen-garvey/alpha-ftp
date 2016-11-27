@@ -354,6 +354,8 @@ int main(int argc, char **argv){
     close(clientFileDescriptor);
   }
 
+  //we shouldn't ever reach here, as the only way to quit
+  //is to manually interrupt or kill process, but in case we do
   //stop server listening
   close(serverSocketFileDescriptor);
 }
