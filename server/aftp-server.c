@@ -21,6 +21,8 @@
 #define MESSAGE_BUFFER_SIZE 1024
 //number of requests that allowed to queue up waiting for server to become available
 #define REQUEST_QUEUE_SIZE 8
+//character sequence to signify end of message sent
+#define MESSAGE_END_STRING "\n\0\0aftp\0"
 
 /*
  * Error functions
@@ -139,23 +141,18 @@ void readFromSocketIntoBuffer(int clientFileDescriptor, char messageBuffer[MESSA
 void sendDirectoryListing(int clientFileDescriptor){
   struct dirent *directoryEntry;
   DIR *directory = opendir(".");
-  //need count of files to make sure there was at least one file, otherwise we need to send empty message
-  int directoryEntriesCount = 0;
   if(directory){
     while((directoryEntry = readdir(directory)) != NULL){
       sendToSocket(clientFileDescriptor, directoryEntry->d_name);
       sendToSocket(clientFileDescriptor, "\n");
-      directoryEntriesCount++;
     }
     closedir(directory);
-    //if directory is empty, make sure at least something is sent to client
-    if(directoryEntriesCount == 0){
-      sendToSocket(clientFileDescriptor, "\n");
-    }
   }
   else{
     sendToSocket(clientFileDescriptor, "Directory doesn't exist or can't be accessed");
   }
+  //send message end escape sequence so client knows that is the end of the message
+  sendToSocket(clientFileDescriptor, MESSAGE_END_STRING);
 }
 
 
