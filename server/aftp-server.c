@@ -16,6 +16,8 @@
 #include <arpa/inet.h>
 //for directory listing
 #include <dirent.h>
+//for file opening errors
+#include <errno.h>
 
 //used for the buffer for messages sent to/from the client
 #define MESSAGE_BUFFER_SIZE 1024
@@ -173,10 +175,50 @@ void sendDirectoryListing(int clientFileDescriptor){
 /*
 * Send file contents to client functions (-g)
 */
-//sends contents of file identified by fileName argument over socket to client
-//indentified by clientFileDescriptor
-void sendFileContents(int clientFileDescriptor, char *fileName){
+//function to send error message to client when opening file fails
+//first argument is file descriptor for client socket connection
+//second argument should be reference to errno which will contain error
+void sendFileOpenError(int clientFileDescriptor, int errorNum){
+  switch(errorNum){
+    //permissions error
+    case EACCES:
+      sendToSocket(clientFileDescriptor, "Permissions denied to open file");
+      break;
+    //file doesn't exist
+    case ENOENT:
+      sendToSocket(clientFileDescriptor, "File doesn't exist");
+      break;
+    //unspecified error
+    default:
+      break;
+  }
+}
 
+//sends contents of file identified by fileName argument over socket to client
+//identified by clientFileDescriptor
+//based on: http://stackoverflow.com/questions/3501338/c-read-file-line-by-line
+void sendFileContents(int clientFileDescriptor, char *fileName){
+  //attempt to open to specified file for reading
+  FILE *filePointer = fopen(fileName, "r");
+  //check if it succeed
+  if(filePointer == NULL){
+    //send error to client, since we couldn't open file
+    sendFileOpenError(clientFileDescriptor, errno);
+    return;
+  }
+  //initialize line reading variables
+  char *line = NULL;
+  size_t len = 0;
+  ssize_t read;
+  //read file line by line and send to client
+  while((read = getline(&line, &len, filePointer)) != -1){
+    sendToSocket(clientFileDescriptor, line);
+  }
+
+  //free space allocated for line
+  free(line);
+  //close file
+  fclose(filePointer);
 }
 
 
@@ -208,7 +250,8 @@ int main(int argc, char **argv){
     
 
     //send response to client
-    sendDirectoryListing(clientFileDescriptor);
+    //sendDirectoryListing(clientFileDescriptor);
+    sendFileContents(clientFileDescriptor, messageBuffer);
     //close connection
     close(clientFileDescriptor);
   }
