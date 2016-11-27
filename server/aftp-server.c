@@ -206,7 +206,7 @@ void sendFileOpenError(int clientFileDescriptor, int errorNum){
 //identified by clientFileDescriptor
 //based on: http://stackoverflow.com/questions/3501338/c-read-file-line-by-line
 //and http://man7.org/linux/man-pages/man3/errno.3.html
-void sendFileContents(int clientFileDescriptor, char *fileName){
+void sendFileContents(int clientFileDescriptor, char fileName[MESSAGE_BUFFER_SIZE]){
   //attempt to open to specified file for reading
   FILE *filePointer = fopen(fileName, "r");
   //check if it succeed
@@ -228,6 +228,32 @@ void sendFileContents(int clientFileDescriptor, char *fileName){
   free(line);
   //close file
   fclose(filePointer);
+}
+
+//alters messageBuffer to only contain fileName for -g command
+void extractFileName(char messageBuffer[MESSAGE_BUFFER_SIZE]){
+  //command is of format
+  //CONTROL:\s-g\sfileName
+  int startIndex = COMMAND_PRELUDE_LENGTH + COMMAND_LENGTH + 1;
+  int i;
+  //erase message header with null chars
+  //required in case fileName is shorter than message header 
+  for(i=0;i<startIndex;i++){
+    messageBuffer[i] = '\0';
+  }
+
+  //transpose fileName to beginning of string
+  for(i=startIndex;i<MESSAGE_BUFFER_SIZE;i++){
+    char currentChar = messageBuffer[i];
+    //if current char is \0 we have reached the end of the filename
+    if(currentChar == '\0'){
+      break;
+    }
+    //transpose to beginning of string
+    else{
+      messageBuffer[i-startIndex] = currentChar;
+    }
+  }
 }
 
 /*
@@ -310,6 +336,8 @@ int main(int argc, char **argv){
       sendDirectoryListing(clientFileDescriptor);
     }
     else if(commandType == COMMAND_GET){
+      //extract fileName into message buffer
+      extractFileName(messageBuffer);
       sendFileContents(clientFileDescriptor, messageBuffer);
     }
 
