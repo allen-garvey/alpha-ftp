@@ -2,7 +2,7 @@
  * Alpha-ftp
  * by: Allen Garvey
  * usage: aftp-server <port>
- * based on: http://www.cs.cmu.edu/afs/cs/academic/class/15213-f99/www/class26/tcpserver.c
+ * server based on: http://www.cs.cmu.edu/afs/cs/academic/class/15213-f99/www/class26/tcpserver.c
  */
 
 #include <stdio.h>
