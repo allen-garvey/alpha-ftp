@@ -174,7 +174,7 @@ void sendDirectoryListing(int clientFileDescriptor){
     closedir(directory);
   }
   else{
-    sendToSocket(clientFileDescriptor, "Directory doesn't exist or can't be accessed");
+    sendToSocket(clientFileDescriptor, "ERROR: Directory doesn't exist or can't be accessed");
   }
   //send message end escape sequence so client knows that is the end of the message
   sendToSocket(clientFileDescriptor, MESSAGE_END_STRING);
@@ -190,11 +190,11 @@ void sendFileOpenError(int clientFileDescriptor, int errorNum){
   switch(errorNum){
     //permissions error
     case EACCES:
-      sendToSocket(clientFileDescriptor, "Permissions denied to open file");
+      sendToSocket(clientFileDescriptor, "ERROR: Permissions denied to open file\n");
       break;
     //file doesn't exist
     case ENOENT:
-      sendToSocket(clientFileDescriptor, "File doesn't exist");
+      sendToSocket(clientFileDescriptor, "ERROR: File doesn't exist\n");
       break;
     //unspecified error
     default:
@@ -304,7 +304,7 @@ int main(int argc, char **argv){
     
     enum CommandType commandType = parseCommand(messageBuffer);
     if(commandType == COMMAND_UNRECOGNIZED){
-      sendToSocket(clientFileDescriptor, "Command unrecognized");
+      sendToSocket(clientFileDescriptor, "ERROR: Command unrecognized\n");
     }
     else if(commandType == COMMAND_LIST){
       sendDirectoryListing(clientFileDescriptor);
