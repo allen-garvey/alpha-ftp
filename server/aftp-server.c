@@ -190,16 +190,19 @@ void sendFileOpenError(int clientFileDescriptor, int errorNum){
   switch(errorNum){
     //permissions error
     case EACCES:
-      sendToSocket(clientFileDescriptor, "ERROR: Permissions denied to open file\n");
+      sendToSocket(clientFileDescriptor, "ERROR: Permissions denied to open file");
       break;
     //file doesn't exist
     case ENOENT:
-      sendToSocket(clientFileDescriptor, "ERROR: File doesn't exist\n");
+      sendToSocket(clientFileDescriptor, "ERROR: File doesn't exist");
       break;
     //unspecified error
     default:
+      sendToSocket(clientFileDescriptor, "ERROR: Could not open file");
       break;
   }
+  //send message end control character
+  sendToSocket(clientFileDescriptor, MESSAGE_END_STRING);
 }
 
 //sends contents of file identified by fileName argument over socket to client
@@ -223,7 +226,8 @@ void sendFileContents(int clientFileDescriptor, char fileName[MESSAGE_BUFFER_SIZ
   while((read = getline(&line, &len, filePointer)) != -1){
     sendToSocket(clientFileDescriptor, line);
   }
-
+  //send message end control character
+  sendToSocket(clientFileDescriptor, MESSAGE_END_STRING);
   //free space allocated for line
   free(line);
   //close file
@@ -330,7 +334,9 @@ int main(int argc, char **argv){
     
     enum CommandType commandType = parseCommand(messageBuffer);
     if(commandType == COMMAND_UNRECOGNIZED){
-      sendToSocket(clientFileDescriptor, "ERROR: Command unrecognized\n");
+      sendToSocket(clientFileDescriptor, "ERROR: Command unrecognized");
+      //send message end control character
+      sendToSocket(clientFileDescriptor, MESSAGE_END_STRING);
     }
     else if(commandType == COMMAND_LIST){
       sendDirectoryListing(clientFileDescriptor);
