@@ -14,9 +14,11 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
+//for directory listing
+#include <dirent.h>
 
 //used for the buffer for messages sent to/from the client
-#define BUFFER_SIZE 1024
+#define MESSAGE_BUFFER_SIZE 1024
 //number of requests that allowed to queue up waiting for server to become available
 #define REQUEST_QUEUE_SIZE 8
 
@@ -54,7 +56,7 @@ int validateCommandLineArguments(int argc, char **argv){
 }
 
 /*
- * Setup functions
+ * Server setup functions
  */
 //builds server address we will use to accept connections
 void buildServerAddress(struct sockaddr_in *serverAddress, int portNum){
@@ -102,6 +104,60 @@ int initializeServer(int portNum){
   return serverSocketFileDescriptor;
 }
 
+/*
+* Helper functions for reading/writing to sockets
+*/
+//sends message to client identified by file descriptor
+void sendToSocket(int clientFileDescriptor, char *message){
+  //send message to client
+  int charCountTransferred = write(clientFileDescriptor, message, strlen(message));
+  //check for errors writing
+  if(charCountTransferred < 0){
+    error("ERROR writing to socket");
+  }
+}
+
+//reads message from client identified by file descriptor and puts message into 
+//buffer supplied as second argument
+void readFromSocketIntoBuffer(int clientFileDescriptor, char messageBuffer[MESSAGE_BUFFER_SIZE]){
+    //zero the buffer so that old messages do not remain
+    bzero(messageBuffer, MESSAGE_BUFFER_SIZE);
+    //store message from client in buffer
+    int charCountTransferred = read(clientFileDescriptor, messageBuffer, MESSAGE_BUFFER_SIZE);
+    //check for errors reading
+    if(charCountTransferred < 0){
+      error("ERROR reading from socket");
+    }
+}
+
+/*
+* List directory contents functions (-l)
+*/
+//sends listing of files in current directory to client using socket file descriptor
+//requires POSIX compatible OS
+//based on: http://stackoverflow.com/questions/4204666/how-to-list-files-in-a-directory-in-a-c-program
+void sendDirectoryListing(int clientFileDescriptor){
+  struct dirent *directoryItem;
+  DIR *directory = opendir(".");
+  //need count of files to make sure there was at least one file, otherwise we need to send empty message
+  int directoryItemsCount = 0;
+  if(directory){
+    while((directoryItem = readdir(directory)) != NULL){
+      sendToSocket(clientFileDescriptor, directoryItem->d_name);
+      sendToSocket(clientFileDescriptor, "\n");
+      directoryItemsCount++;
+    }
+    closedir(directory);
+    //if directory is empty, make sure at least something is sent to client
+    if(directoryItemsCount == 0){
+      sendToSocket(clientFileDescriptor, "\n");
+    }
+  }
+  else{
+    sendToSocket(clientFileDescriptor, "Directory doesn't exist or can't be accessed");
+  }
+}
+
 
 int main(int argc, char **argv){
   //get port number from command-line arguments
@@ -117,7 +173,7 @@ int main(int argc, char **argv){
   //initialize address length, since it is used to accept connection
   uint clientAddressLength = sizeof(clientAddress);
   //set aside memory for messages to/from client
-  char messageBuffer[BUFFER_SIZE];
+  char messageBuffer[MESSAGE_BUFFER_SIZE];
   //main server listen loop
   while(1){
     //accept connection
@@ -127,17 +183,12 @@ int main(int argc, char **argv){
     }
     
     //read message sent from client
-    bzero(messageBuffer, BUFFER_SIZE);
-    int charCountTransferred = read(clientFileDescriptor, messageBuffer, BUFFER_SIZE);
-    if(charCountTransferred < 0){
-      error("ERROR reading from socket");
-    }
-    printf("server received %d bytes: %s", charCountTransferred, messageBuffer);
+    readFromSocketIntoBuffer(clientFileDescriptor, messageBuffer);
     
     /* 
      * write: echo the input string back to the client 
      */
-    charCountTransferred = write(clientFileDescriptor, messageBuffer, strlen(messageBuffer));
+    int charCountTransferred = write(clientFileDescriptor, messageBuffer, strlen(messageBuffer));
     if(charCountTransferred < 0){
       error("ERROR writing to socket");
     }
