@@ -111,26 +111,22 @@ int main(int argc, char **argv){
   //do server setup and start server listing on portNum
   int serverSocketFileDescriptor = initializeServer(portNum);
 
-  /* 
-   * main loop: wait for a connection request, echo input line, 
-   * then close connection.
-   */
-  struct sockaddr_in clientAddress; /* client addr */
+
+  //set aside memory for client connection address
+  struct sockaddr_in clientAddress;
+  //initialize address length, since it is used to accept connection
   uint clientAddressLength = sizeof(clientAddress);
   //set aside memory for messages to/from client
   char messageBuffer[BUFFER_SIZE];
-  while (1) {
-    /* 
-     * accept: wait for a connection request 
-     */
+  //main server listen loop
+  while(1){
+    //accept connection
     int clientFileDescriptor = accept(serverSocketFileDescriptor, (struct sockaddr *) &clientAddress, &clientAddressLength);
     if(clientFileDescriptor < 0){
       error("ERROR while trying to accept connection");
     }
     
-    /* 
-     * read: read input string from the client
-     */
+    //read message sent from client
     bzero(messageBuffer, BUFFER_SIZE);
     int charCountTransferred = read(clientFileDescriptor, messageBuffer, BUFFER_SIZE);
     if(charCountTransferred < 0){
