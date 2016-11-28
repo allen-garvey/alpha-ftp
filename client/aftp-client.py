@@ -182,6 +182,7 @@ if __name__ == '__main__':
 	sentServerDataPortNum = False
 	linesOfDataReceived = 0
 	keepListening = True
+	print "Lines of data is: " + str(linesOfData)
 	
 	#listen for data or error and print it out to user
 	#listen loop based on socket programming slides
@@ -192,7 +193,7 @@ if __name__ == '__main__':
 			controlConnection.send(dataPortNumMessage)
 			sentServerDataPortNum = True
 		clientConnectionSocket, clientAddress = dataConnectionSocket.accept()
-		while linesOfDataReceived != linesOfData:
+		while linesOfDataReceived < linesOfData:
 			line = clientConnectionSocket.recv(MESSAGE_LENGTH)
 			#check for error - if there is one print error message and stop listening
 			#server should close data connection
@@ -202,8 +203,16 @@ if __name__ == '__main__':
 				break
 			#print data
 			else:
+				#count newlines so we know how many lines of data received
+				#based on: http://stackoverflow.com/questions/1155617/count-occurrence-of-a-character-in-a-string
+				linesReceived = line.count("\n")
+				#end of file won't have newline
+				if linesReceived == 0:
+					linesReceived = 1
+				# print "printing line " + str(linesOfDataReceived)
 				print line
-			linesOfDataReceived += 1
+				linesOfDataReceived += linesReceived
+		break
 
 
 
