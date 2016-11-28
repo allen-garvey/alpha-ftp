@@ -20,6 +20,9 @@
 #include <errno.h>
 //for character functions
 #include <ctype.h>
+//for determining if file name is associated with file
+#include <sys/stat.h>
+#include <unistd.h>
 
 //used for the buffer for messages sent to/from the client
 #define MESSAGE_BUFFER_SIZE 1024
@@ -235,6 +238,15 @@ void sendFileOpenError(int clientFileDescriptor, int errorNum){
   }
 }
 
+//determine if fileName is associate with a file and not a directory, socket etc
+//based on: http://stackoverflow.com/questions/4553012/checking-if-a-file-is-a-directory-or-just-a-file
+//and http://stackoverflow.com/questions/18711640/how-to-distinguish-a-file-pointer-points-to-a-file-or-a-directory
+int isFile(int fileDescriptor){
+  struct stat fileInfo;
+  fstat(fileDescriptor, &fileInfo);
+  return S_ISREG(fileInfo.st_mode);
+}
+
 //sends contents of file identified by fileName argument over socket to client
 //identified by clientFileDescriptor
 //based on: http://stackoverflow.com/questions/3501338/c-read-file-line-by-line
@@ -246,6 +258,14 @@ void sendFileContents(int clientFileDescriptor, char fileName[MESSAGE_BUFFER_SIZ
   if(filePointer == NULL){
     //send error to client, since we couldn't open file
     sendFileOpenError(clientFileDescriptor, errno);
+    return;
+  }
+  //check that file is not directory or socket
+  //based on: http://stackoverflow.com/questions/18711640/how-to-distinguish-a-file-pointer-points-to-a-file-or-a-directory
+  int fileDescriptor = fileno(filePointer);
+  if(!isFile(fileDescriptor)){
+    sendToSocket(clientFileDescriptor, "ERROR: The file name requested is not associated with a regular file\n");
+    fclose(filePointer);
     return;
   }
   //initialize line reading variables
@@ -280,6 +300,14 @@ void sendFileLineCount(int clientFileDescriptor, char fileName[MESSAGE_BUFFER_SI
   if(filePointer == NULL){
     //send error to client, since we couldn't open file
     sendFileOpenError(clientFileDescriptor, errno);
+    return;
+  }
+  //check that file is not directory or socket
+  //based on: http://stackoverflow.com/questions/18711640/how-to-distinguish-a-file-pointer-points-to-a-file-or-a-directory
+  int fileDescriptor = fileno(filePointer);
+  if(!isFile(fileDescriptor)){
+    sendToSocket(clientFileDescriptor, "ERROR: The file name requested is not associated with a regular file\n");
+    fclose(filePointer);
     return;
   }
   //initialize line reading variables
@@ -390,9 +418,14 @@ int main(int argc, char **argv){
   uint clientAddressLength = sizeof(clientAddress);
   //set aside memory for messages to/from client
   char messageBuffer[MESSAGE_BUFFER_SIZE];
+  //set aside memory for fileName for -g commands
+  //and initialize it with null chars
+  char fileName[MESSAGE_BUFFER_SIZE];
+  bzero(fileName, MESSAGE_BUFFER_SIZE);
   //main server listen loop
   while(1){
     //accept connection
+    //don't need to close connection, because client should do this
     int clientFileDescriptor = accept(serverSocketFileDescriptor, (struct sockaddr *) &clientAddress, &clientAddressLength);
     if(clientFileDescriptor < 0){
       error("ERROR while trying to accept connection");
@@ -413,14 +446,11 @@ int main(int argc, char **argv){
     else if(commandType == COMMAND_GET){
       //extract fileName into message buffer
       extractFileName(messageBuffer);
-      sendFileContents(clientFileDescriptor, messageBuffer);
+      //copy file name from messageBuffer
+      strcpy(fileName, messageBuffer);
+      sendFileContents(clientFileDescriptor, fileName);
     }
 
-    //send response to client
-    //sendDirectoryListing(clientFileDescriptor);
-    //sendFileContents(clientFileDescriptor, messageBuffer);
-    //close connection
-    close(clientFileDescriptor);
   }
 
   //we shouldn't ever reach here, as the only way to quit
