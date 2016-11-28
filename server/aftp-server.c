@@ -518,7 +518,7 @@ int main(int argc, char **argv){
 
     //send data over data connection
     if(commandType == COMMAND_LIST){
-      sendDirectoryListing(clientFileDescriptor);
+      sendDirectoryListing(dataConnectionFileDescriptor);
     }
     //send file contents
     else{
