@@ -22,7 +22,7 @@ Basic ftp client and server
 
 * Client starts listening for TCP requests on a port so the data can be transfered. Sends the server a message in the format `TRANSFER: <port_num>\n` with <port_no> being the port the server should use to connect to the client to send the data
 
-* The server connects to the client on the given port and sends the data with the format `DATA: <line_number>\n<data>\n` where <line_number> is the 0 indexed line number the data is from and <data> is the requested data. If there was a problem retrieving the data, a message in the format `ERROR: <error_message>\n` will be sent
+* The server connects to the client on the given port and sends the data line by line (up to the given number of lines indicated in the OK message) in the format `<data>` where <data> is the requested data. If there was a problem retrieving the data, a message in the format `ERROR: <error_message>\n` will be sent instead
 
 * The server will then close the data connection and the client will close the control connection
 

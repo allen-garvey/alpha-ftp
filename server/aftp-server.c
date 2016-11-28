@@ -165,24 +165,17 @@ void sendDirectoryListing(int clientFileDescriptor){
   struct dirent *directoryEntry;
   //attempt to open current working directory
   DIR *directory = opendir(".");
-  //initialize variable to hold data message
-  char dataMessage[MESSAGE_BUFFER_SIZE];
-  //initialize variable to hold line number
-  int lineNum = 0;
+  //keep track of number of directory entries so we know if directory is empty
+  int entriesCount = 0;
   if(directory){
     while((directoryEntry = readdir(directory)) != NULL){
-      //clear out data message
-      bzero(dataMessage, MESSAGE_BUFFER_SIZE);
-      //format data message with data
-      //based on: https://www.tutorialspoint.com/c_standard_library/c_function_sprintf.htm
-      sprintf(dataMessage, "DATA: %d\n%s\n", lineNum, directoryEntry->d_name);
-      sendToSocket(clientFileDescriptor, dataMessage);
-      lineNum++;
+      sendToSocket(clientFileDescriptor, directoryEntry->d_name);
+      entriesCount++;
     }
     closedir(directory);
     //send something if directory was empty
-    if(lineNum == 0){
-      sendToSocket(clientFileDescriptor, "DATA: 0\n\n");
+    if(entriesCount == 0){
+      sendToSocket(clientFileDescriptor, "");
     }
   }
   //problem accessing directory
@@ -259,14 +252,21 @@ void sendFileContents(int clientFileDescriptor, char fileName[MESSAGE_BUFFER_SIZ
   char *line = NULL;
   size_t len = 0;
   ssize_t read;
+  //store number of lines read, since we need to know if file was empty
+  int lineCount = 0;
   //read file line by line and send to client
   while((read = getline(&line, &len, filePointer)) != -1){
     sendToSocket(clientFileDescriptor, line);
+    lineCount++;
   }
   //free space allocated for line
   free(line);
   //close file
   fclose(filePointer);
+  //make sure we send something if file was empty
+  if(lineCount == 0){
+    sendToSocket(clientFileDescriptor, "");
+  }
 }
 
 //sends error message to client if file can't be opened or "OK: line_count\n" to client
