@@ -4,8 +4,9 @@ Basic ftp client and server
 
 ## Dependencies
 
-* gcc 4.8.5 or later
+* gcc 4.8.5 or higher
 * POSIX compatible operating system 
+* Python 2.7.5 or higher
 
 ## Notes
 
