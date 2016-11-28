@@ -104,6 +104,8 @@ if __name__ == '__main__':
 		print "Could not connect to " + serverHostName + ":" + str(serverPortNum)
 		sys.exit(1)
 
+	#format command for server
+
 	#send command to server
 
 
@@ -117,6 +119,6 @@ if __name__ == '__main__':
 
 
 	#close control connection (server will close data connection)
-
+	controlConnection.close()
 
 
