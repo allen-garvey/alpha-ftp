@@ -1,10 +1,26 @@
 #!/usr/bin/env python
 
 import sys
+from socket import *
 
 #alpha ftp client
 #by: Allen Garvey
 
+
+#############################################################
+# Setup control connection functions
+#############################################################
+
+#connects to server at hostName and portNum using TCP
+#returns connection or false if can't connect
+#based on socket programming slides
+def connectToServer(hostName, portNum):
+	clientSocket = socket(AF_INET, SOCK_STREAM)
+	try:
+		clientSocket.connect((hostName, portNum))
+	except Exception:
+		return False
+	return clientSocket
 
 #############################################################
 # Command line arguments validation functions
@@ -71,5 +87,36 @@ def validateCommandArguments(commandArguments):
 #############################################################
 if __name__ == '__main__':
 	#check for command line arguments
-	validateCommandArguments(sys.argv)
+	commandArguments = sys.argv
+	validateCommandArguments(commandArguments)
 	#if we are here, command arguments are valid
+	serverHostName = commandArguments[1]
+	#convert port numbers to int
+	#no need to use try/catch, since we did that in validation so we know they are numeric
+	serverPortNum = int(commandArguments[2])
+	dataPortNum = int(commandArguments[3])
+	commandName = commandArguments[4]
+
+	#create control connection to server
+	controlConnection = connectToServer(serverHostName, serverPortNum)
+	#check that connection succeeded
+	if controlConnection == False:
+		print "Could not connect to " + serverHostName + ":" + str(serverPortNum)
+		sys.exit(1)
+
+	#send command to server
+
+
+	#receive number of lines of data or error
+
+	#start data connection
+
+	#send data connection port to server
+
+	#listen for data or error and print it out to user
+
+
+	#close control connection (server will close data connection)
+
+
+
