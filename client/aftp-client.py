@@ -177,8 +177,8 @@ if __name__ == '__main__':
 
 	#format message to send data port number to server
 	dataPortNumMessage = "TRANSFER: " + str(dataPortNum) + "\n"
+	#initialize variable to hold count of lines received
 	linesOfDataReceived = 0
-	print "Lines of data is: " + str(linesOfData)
 	
 	#listen for data or error and print it out to user
 	#based on socket programming slides
@@ -195,13 +195,12 @@ if __name__ == '__main__':
 			break
 		#print data
 		else:
-			#count newlines so we know how many lines of data received
+			#count newlines so we know how many lines of data received per recv call
 			#based on: http://stackoverflow.com/questions/1155617/count-occurrence-of-a-character-in-a-string
 			linesReceived = line.count("\n")
 			#end of file won't have newline
 			if linesReceived == 0:
 				linesReceived = 1
-			print "printing line " + str(linesOfDataReceived) + " of length " + str(len(line))
 			#print without newline
 			#based on: http://stackoverflow.com/questions/493386/how-to-print-in-python-without-newline-or-space
 			sys.stdout.write(line)
