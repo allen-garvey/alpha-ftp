@@ -26,6 +26,8 @@ def isValidPortNum(portNumString):
 	return False
 
 
+#validate command arguments are valid and in correct format:
+# program_name server_host server_port data_connection_port <-l or -g> [file_name if command is -g]
 def validateCommandArguments(commandArguments):
 	commandArgumentsLength = len(commandArguments)
 	#check to make sure command line arguments is a valid length
