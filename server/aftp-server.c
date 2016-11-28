@@ -482,7 +482,6 @@ int main(int argc, char **argv){
     }
     //send ok message with length of data to be send
     if(commandType == COMMAND_LIST){
-      // sendDirectoryListing(clientFileDescriptor);
       sendDirectoryListingCount(clientFileDescriptor);
     }
     //get command
@@ -491,16 +490,44 @@ int main(int argc, char **argv){
       extractFileName(messageBuffer);
       //copy file name from messageBuffer
       strcpy(fileName, messageBuffer);
-      // sendFileContents(clientFileDescriptor, fileName);
       sendFileLineCount(clientFileDescriptor, fileName);
     }
     //get message from client for data transfer port number
     //should be in format of "TRANSFER: port_num\n"
     readFromSocketIntoBuffer(clientFileDescriptor, messageBuffer);
     int dataPortNum = parseDataPortNum(messageBuffer);
+    //check that data port number is valid
+    //if error just send message- as client should close connection
+    if(dataPortNum == DATA_PORT_ERROR){
+      sendToSocket(clientFileDescriptor, "ERROR: data port number is invalid\n");
+      continue;
+    }
+    //connect to client on data port number
+    //based on: http://www.cs.cmu.edu/afs/cs/academic/class/15213-f99/www/class26/tcpclient.c
+    //create socket to connect on
+    int dataConnectionFileDescriptor = socket(AF_INET, SOCK_STREAM, 0);
+    if(dataConnectionFileDescriptor < 0){
+      error("ERROR opening data connection socket");
+    }
+    //set port num on client address
+    clientAddress.sin_port = htons(dataPortNum);
+    //try to connect
+    if(connect(dataConnectionFileDescriptor, (struct sockaddr *) &clientAddress, sizeof(clientAddress)) < 0){
+      error("ERROR connecting to client for data connection");
+    }
 
+    //send data over data connection
+    if(commandType == COMMAND_LIST){
+      sendDirectoryListing(clientFileDescriptor);
+    }
+    //send file contents
+    else{
+      sendFileContents(dataConnectionFileDescriptor, fileName);
+    }
+    //close data connection
+    close(dataConnectionFileDescriptor);
 
-    //no need to close connection, since client is supposed to do this
+    //no need to close control connection, since client is supposed to do this
   }
 
   //we shouldn't ever reach here, as the only way to quit
