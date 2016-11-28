@@ -172,9 +172,14 @@ void sendDirectoryListing(int clientFileDescriptor){
   DIR *directory = opendir(".");
   //keep track of number of directory entries so we know if directory is empty
   int entriesCount = 0;
+  //initialize variable to hold message
+  char message[MESSAGE_BUFFER_SIZE];
   if(directory){
     while((directoryEntry = readdir(directory)) != NULL){
-      sendToSocket(clientFileDescriptor, directoryEntry->d_name);
+      //clear out message and put directory name and newline into it
+      bzero(message, MESSAGE_BUFFER_SIZE);
+      sprintf(message, "%s\n", directoryEntry->d_name);
+      sendToSocket(clientFileDescriptor, message);
       entriesCount++;
     }
     closedir(directory);
