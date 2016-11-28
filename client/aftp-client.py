@@ -1,12 +1,46 @@
 #!/usr/bin/env python
 
-import sys
-from socket import *
-import re
-
 #alpha ftp client
 #by: Allen Garvey
 
+import sys
+from socket import *
+import re
+import os.path
+
+
+#############################################################
+# Handle server data functions
+#############################################################
+
+#takes line from server data and displays it on-screen
+def listCommandAction(line):
+	#print without newline
+	#based on: http://stackoverflow.com/questions/493386/how-to-print-in-python-without-newline-or-space
+	sys.stdout.write(line)
+	sys.stdout.flush()
+
+#get name of file to save contents to
+#if file with file name already exits, will keep adding numbers until it finds one that doesn't exist
+#based on: http://stackoverflow.com/questions/82831/how-do-i-check-whether-a-file-exists-using-python
+def getSaveFileName(fileName):
+	#if file doesn't already exist, then we can use the filename as is
+	if os.path.isfile(fileName) == False:
+		return fileName
+	#file exists, so keep adding numbers until we find a usable filename
+	fileSuffix = 1
+	while True:
+		modifiedFileName = fileName + " (copy) " + str(fileSuffix)
+		#see if it exists
+		if os.path.isfile(modifiedFileName) == False:
+			return modifiedFileName
+		#it does, so try next number
+		fileSuffix += 1
+
+#takes line from server and saves it in file
+#writing line by line based on: http://stackoverflow.com/questions/35685518/python-write-line-by-line-to-a-text-file
+def saveFileCommandAction(line, saveFile):
+	saveFile.write(line)
 
 #############################################################
 # Parse server response functions
@@ -126,7 +160,6 @@ def validateCommandArguments(commandArguments):
 		sys.exit(1)
 
 
-
 #############################################################
 # Main function
 #############################################################
@@ -186,6 +219,17 @@ if __name__ == '__main__':
 	#send message to server with data port number
 	controlConnection.send(dataPortNumMessage)
 	clientConnectionSocket, clientAddress = dataConnectionSocket.accept()
+	#open file for writing if we are getting a file
+	if commandName == "-g":
+		saveFileName = getSaveFileName(commandArguments[5])
+		#writing line by line based on: http://stackoverflow.com/questions/35685518/python-write-line-by-line-to-a-text-file
+		try:
+			saveFile = open(saveFileName, "a")
+		except Exception:
+			print "Could not open " + saveFileName + " for writing"
+			sys.exit(1)
+	
+	#receive all the data from the server
 	while linesOfDataReceived < linesOfData:
 		line = clientConnectionSocket.recv(MESSAGE_LENGTH)
 		#check for error - if there is one print error message and stop listening
@@ -201,12 +245,19 @@ if __name__ == '__main__':
 			#end of file won't have newline
 			if linesReceived == 0:
 				linesReceived = 1
-			#print without newline
-			#based on: http://stackoverflow.com/questions/493386/how-to-print-in-python-without-newline-or-space
-			sys.stdout.write(line)
-			sys.stdout.flush()
+			
+			#take appropriate action based on command
+			if commandName == "-l":
+				listCommandAction(line)
+			else:
+				saveFileCommandAction(line, saveFile)
+
 			linesOfDataReceived += linesReceived
 
+
+	#display transfer complete message if command was -g
+	if commandName == "-g":
+		print 'Transfer complete: file saved as "' + saveFileName + '"'
 
 	#close control connection (server will close data connection)
 	controlConnection.close()
