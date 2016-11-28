@@ -177,43 +177,36 @@ if __name__ == '__main__':
 
 	#format message to send data port number to server
 	dataPortNumMessage = "TRANSFER: " + str(dataPortNum) + "\n"
-	#need to send server the data port number exactly once in while loop,
-	#create variable to store if we sent it yet
-	sentServerDataPortNum = False
 	linesOfDataReceived = 0
-	keepListening = True
 	print "Lines of data is: " + str(linesOfData)
 	
 	#listen for data or error and print it out to user
-	#listen loop based on socket programming slides
+	#based on socket programming slides
 	dataConnectionSocket.listen(1)
-	while keepListening:
-		#send message to server with data port number once
-		if sentServerDataPortNum == False:
-			controlConnection.send(dataPortNumMessage)
-			sentServerDataPortNum = True
-		clientConnectionSocket, clientAddress = dataConnectionSocket.accept()
-		while linesOfDataReceived < linesOfData:
-			line = clientConnectionSocket.recv(MESSAGE_LENGTH)
-			#check for error - if there is one print error message and stop listening
-			#server should close data connection
-			if isErrorMessage(line):
-				print extractErrorMessage(line)
-				keepListening = False
-				break
-			#print data
-			else:
-				#count newlines so we know how many lines of data received
-				#based on: http://stackoverflow.com/questions/1155617/count-occurrence-of-a-character-in-a-string
-				linesReceived = line.count("\n")
-				#end of file won't have newline
-				if linesReceived == 0:
-					linesReceived = 1
-				# print "printing line " + str(linesOfDataReceived)
-				print line
-				linesOfDataReceived += linesReceived
-		break
-
+	#send message to server with data port number
+	controlConnection.send(dataPortNumMessage)
+	clientConnectionSocket, clientAddress = dataConnectionSocket.accept()
+	while linesOfDataReceived < linesOfData:
+		line = clientConnectionSocket.recv(MESSAGE_LENGTH)
+		#check for error - if there is one print error message and stop listening
+		#server should close data connection
+		if isErrorMessage(line):
+			print extractErrorMessage(line)
+			break
+		#print data
+		else:
+			#count newlines so we know how many lines of data received
+			#based on: http://stackoverflow.com/questions/1155617/count-occurrence-of-a-character-in-a-string
+			linesReceived = line.count("\n")
+			#end of file won't have newline
+			if linesReceived == 0:
+				linesReceived = 1
+			print "printing line " + str(linesOfDataReceived) + " of length " + str(len(line))
+			#print without newline
+			#based on: http://stackoverflow.com/questions/493386/how-to-print-in-python-without-newline-or-space
+			sys.stdout.write(line)
+			sys.stdout.flush()
+			linesOfDataReceived += linesReceived
 
 
 	#close control connection (server will close data connection)
