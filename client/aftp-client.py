@@ -2,25 +2,70 @@
 
 import sys
 from socket import *
+import re
 
 #alpha ftp client
 #by: Allen Garvey
 
 
 #############################################################
-# Setup control connection functions
+# Parse server response functions
+#############################################################
+#returns true if message is server error message
+#matching based on: http://stackoverflow.com/questions/180986/what-is-the-difference-between-pythons-re-search-and-re-match
+def isErrorMessage(message):
+	if re.match("^ERROR: ", message):
+		return True
+	return False
+
+#returns error message by extracting error header
+#substitution based on: http://stackoverflow.com/questions/16720541/python-string-replace-regular-expression
+def extractErrorMessage(errorMessage):
+	return re.sub("^ERROR: ", "", errorMessage)
+
+#parses server response to command
+#if successful will return int of lines of data to be sent
+#if error will print error and exit
+def parseServerCommandResponse(serverResponse):
+	#check for error
+	
+	if isErrorMessage(serverResponse):
+		print extractErrorMessage(serverResponse)
+		sys.exit(1)
+	#if we're here, must be successful, so parse lines
+	rawLines = re.sub("^OK: ", "", serverResponse)
+	#convert to integer
+	linesOfData = int(rawLines)
+	return linesOfData
+
+#############################################################
+# Setup TCP connection functions
 #############################################################
 
 #connects to server at hostName and portNum using TCP
-#returns connection or false if can't connect
+#returns socket object
 #based on socket programming slides
 def connectToServer(hostName, portNum):
 	clientSocket = socket(AF_INET, SOCK_STREAM)
 	try:
 		clientSocket.connect((hostName, portNum))
 	except Exception:
-		return False
+		print "Could not connect to " + hostName + ":" + str(portNum)
+		sys.exit(1)
 	return clientSocket
+
+#creates binds to port specified by portNum so that it can listen
+#for TCP connections
+#returns socket object or false if it fails
+#based on socket programming slides
+def createDataConnection(portNum):
+	serverDataSocket = socket(AF_INET, SOCK_STREAM)
+	try:
+		serverDataSocket.bind(("", portNum))
+	except Exception:
+		return False
+	return serverDataSocket
+
 
 #############################################################
 # Command line arguments validation functions
@@ -86,6 +131,9 @@ def validateCommandArguments(commandArguments):
 # Main function
 #############################################################
 if __name__ == '__main__':
+	#CONSTANTS
+	MESSAGE_LENGTH = 1024
+
 	#check for command line arguments
 	commandArguments = sys.argv
 	validateCommandArguments(commandArguments)
@@ -99,23 +147,64 @@ if __name__ == '__main__':
 
 	#create control connection to server
 	controlConnection = connectToServer(serverHostName, serverPortNum)
-	#check that connection succeeded
-	if controlConnection == False:
-		print "Could not connect to " + serverHostName + ":" + str(serverPortNum)
-		sys.exit(1)
 
 	#format command for server
+	#should be in format "CONTROL: <command_name> [file_name]\n"
+	if commandName == "-l":
+		formattedCommand = "CONTROL: -l\n"
+	else:
+		#no need to check commandArguments length first since we already validated this
+		formattedCommand = "CONTROL: -g " + commandArguments[5] + "\n"
 
 	#send command to server
-
+	controlConnection.send(formattedCommand)
 
 	#receive number of lines of data or error
+	serverResponse = controlConnection.recv(MESSAGE_LENGTH)
+	#will return int of lines of data to be received
+	#will exit with error if server returns error message
+	linesOfData = parseServerCommandResponse(serverResponse)
 
 	#start data connection
+	dataConnectionSocket = createDataConnection(dataPortNum)
+	#check that data connection succeeded
+	if dataConnectionSocket == False:
+		print "Could not bind to port " + str(portNum) + " for data connection"
+		#close control connection, since server will not do that
+		controlConnection.close()
+		sys.exit(1)
 
-	#send data connection port to server
 
+	#format message to send data port number to server
+	dataPortNumMessage = "TRANSFER: " + str(dataPortNum) + "\n"
+	#need to send server the data port number exactly once in while loop,
+	#create variable to store if we sent it yet
+	sentServerDataPortNum = False
+	linesOfDataReceived = 0
+	keepListening = True
+	
 	#listen for data or error and print it out to user
+	#listen loop based on socket programming slides
+	dataConnectionSocket.listen(1)
+	while keepListening:
+		#send message to server with data port number once
+		if sentServerDataPortNum == False:
+			controlConnection.send(dataPortNumMessage)
+			sentServerDataPortNum = True
+		clientConnectionSocket, clientAddress = dataConnectionSocket.accept()
+		while linesOfDataReceived != linesOfData:
+			line = clientConnectionSocket.recv(MESSAGE_LENGTH)
+			#check for error - if there is one print error message and stop listening
+			#server should close data connection
+			if isErrorMessage(line):
+				print extractErrorMessage(line)
+				keepListening = False
+				break
+			#print data
+			else:
+				print line
+			linesOfDataReceived += 1
+
 
 
 	#close control connection (server will close data connection)
