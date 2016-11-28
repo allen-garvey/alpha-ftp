@@ -419,7 +419,7 @@ int parseDataPortNum(char messageBuffer[MESSAGE_BUFFER_SIZE]){
   bzero(portNumRaw, MESSAGE_BUFFER_SIZE);
 
   //copy message buffer into portNum raw, starting with contents after prelude
-  int startIndex = COMMAND_PRELUDE_LENGTH;
+  int startIndex = COMMAND_PRELUDE_LENGTH + 1;
   int i;
 
   for(i=startIndex;i<MESSAGE_BUFFER_SIZE;i++){
