@@ -25,8 +25,6 @@
 #define MESSAGE_BUFFER_SIZE 1024
 //number of requests that allowed to queue up waiting for server to become available
 #define REQUEST_QUEUE_SIZE 8
-//character sequence to signify end of message sent
-#define MESSAGE_END_STRING "\n"
 
 //command parsing constants
 //length of CONTROL:\s
@@ -173,11 +171,10 @@ void sendDirectoryListing(int clientFileDescriptor){
     }
     closedir(directory);
   }
+  //problem accessing directory
   else{
-    sendToSocket(clientFileDescriptor, "ERROR: Directory doesn't exist or can't be accessed");
+    sendToSocket(clientFileDescriptor, "ERROR: Directory doesn't exist or can't be accessed\n");
   }
-  //send message end escape sequence so client knows that is the end of the message
-  sendToSocket(clientFileDescriptor, MESSAGE_END_STRING);
 }
 
 /*
@@ -190,19 +187,17 @@ void sendFileOpenError(int clientFileDescriptor, int errorNum){
   switch(errorNum){
     //permissions error
     case EACCES:
-      sendToSocket(clientFileDescriptor, "ERROR: Permissions denied to open file");
+      sendToSocket(clientFileDescriptor, "ERROR: Permissions denied to open file\n");
       break;
     //file doesn't exist
     case ENOENT:
-      sendToSocket(clientFileDescriptor, "ERROR: File doesn't exist");
+      sendToSocket(clientFileDescriptor, "ERROR: File doesn't exist\n");
       break;
     //unspecified error
     default:
-      sendToSocket(clientFileDescriptor, "ERROR: Could not open file");
+      sendToSocket(clientFileDescriptor, "ERROR: Could not open file\n");
       break;
   }
-  //send message end control character
-  sendToSocket(clientFileDescriptor, MESSAGE_END_STRING);
 }
 
 //sends contents of file identified by fileName argument over socket to client
@@ -226,8 +221,6 @@ void sendFileContents(int clientFileDescriptor, char fileName[MESSAGE_BUFFER_SIZ
   while((read = getline(&line, &len, filePointer)) != -1){
     sendToSocket(clientFileDescriptor, line);
   }
-  //send message end control character
-  sendToSocket(clientFileDescriptor, MESSAGE_END_STRING);
   //free space allocated for line
   free(line);
   //close file
@@ -334,9 +327,7 @@ int main(int argc, char **argv){
     
     enum CommandType commandType = parseCommand(messageBuffer);
     if(commandType == COMMAND_UNRECOGNIZED){
-      sendToSocket(clientFileDescriptor, "ERROR: Command unrecognized");
-      //send message end control character
-      sendToSocket(clientFileDescriptor, MESSAGE_END_STRING);
+      sendToSocket(clientFileDescriptor, "ERROR: Command unrecognized\n");
     }
     else if(commandType == COMMAND_LIST){
       sendDirectoryListing(clientFileDescriptor);
