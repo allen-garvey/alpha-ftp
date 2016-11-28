@@ -163,18 +163,60 @@ void readFromSocketIntoBuffer(int clientFileDescriptor, char messageBuffer[MESSA
 //based on: http://stackoverflow.com/questions/4204666/how-to-list-files-in-a-directory-in-a-c-program
 void sendDirectoryListing(int clientFileDescriptor){
   struct dirent *directoryEntry;
+  //attempt to open current working directory
   DIR *directory = opendir(".");
+  //initialize variable to hold data message
+  char dataMessage[MESSAGE_BUFFER_SIZE];
+  //initialize variable to hold line number
+  int lineNum = 0;
   if(directory){
     while((directoryEntry = readdir(directory)) != NULL){
-      sendToSocket(clientFileDescriptor, directoryEntry->d_name);
-      sendToSocket(clientFileDescriptor, "\n");
+      //clear out data message
+      bzero(dataMessage, MESSAGE_BUFFER_SIZE);
+      //format data message with data
+      //based on: https://www.tutorialspoint.com/c_standard_library/c_function_sprintf.htm
+      sprintf(dataMessage, "DATA: %d\n%s\n", lineNum, directoryEntry->d_name);
+      sendToSocket(clientFileDescriptor, dataMessage);
+      lineNum++;
+    }
+    closedir(directory);
+    //send something if directory was empty
+    if(lineNum == 0){
+      sendToSocket(clientFileDescriptor, "DATA: 0\n\n");
+    }
+  }
+  //problem accessing directory
+  else{
+    sendToSocket(clientFileDescriptor, "ERROR: Directory doesn't exist or can't be accessed\n");
+  }
+}
+
+//sends either error message to client if directory can't be accessed or "OK: <count>\n"
+//where count is the number of entries in the directory
+void sendDirectoryListingCount(int clientFileDescriptor){
+  struct dirent *directoryEntry;
+  //attempt to open current working directory
+  DIR *directory = opendir(".");
+  //initialize variable to store count of directory entries
+  int entriesCount = 0;
+  if(directory){
+    while((directoryEntry = readdir(directory)) != NULL){
+      entriesCount++;
     }
     closedir(directory);
   }
   //problem accessing directory
   else{
     sendToSocket(clientFileDescriptor, "ERROR: Directory doesn't exist or can't be accessed\n");
+    return;
   }
+  //normalize count, because if it is empty, we will still end one empty record
+  entriesCount = entriesCount > 0 ? entriesCount : 1;
+  //send ok message to client with number of lines of data
+  //based on: https://www.tutorialspoint.com/c_standard_library/c_function_sprintf.htm
+  char okMessage[MESSAGE_BUFFER_SIZE];
+  sprintf(okMessage, "OK: %d\n", entriesCount);
+  sendToSocket(clientFileDescriptor, okMessage);
 }
 
 /*
@@ -225,6 +267,42 @@ void sendFileContents(int clientFileDescriptor, char fileName[MESSAGE_BUFFER_SIZ
   free(line);
   //close file
   fclose(filePointer);
+}
+
+//sends error message to client if file can't be opened or "OK: line_count\n" to client
+//with number of lines in file
+//based on: http://stackoverflow.com/questions/3501338/c-read-file-line-by-line
+//and http://man7.org/linux/man-pages/man3/errno.3.html
+void sendFileLineCount(int clientFileDescriptor, char fileName[MESSAGE_BUFFER_SIZE]){
+  //attempt to open to specified file for reading
+  FILE *filePointer = fopen(fileName, "r");
+  //check if it succeed
+  if(filePointer == NULL){
+    //send error to client, since we couldn't open file
+    sendFileOpenError(clientFileDescriptor, errno);
+    return;
+  }
+  //initialize line reading variables
+  char *line = NULL;
+  size_t len = 0;
+  ssize_t read;
+  int numLines = 0;
+  //read file line by line and send to client
+  while((read = getline(&line, &len, filePointer)) != -1){
+    numLines++;
+  }
+  //free space allocated for line
+  free(line);
+  //close file
+  fclose(filePointer);
+  //if there are no lines in the file, we will still send empty response,
+  //so change 0 lines to 1
+  numLines = numLines > 0 ? numLines : 1;
+  //send ok message to client with number of lines of data
+  //based on: https://www.tutorialspoint.com/c_standard_library/c_function_sprintf.htm
+  char okMessage[MESSAGE_BUFFER_SIZE];
+  sprintf(okMessage, "OK: %d\n", numLines);
+  sendToSocket(clientFileDescriptor, okMessage);
 }
 
 //alters messageBuffer to only contain fileName for -g command
