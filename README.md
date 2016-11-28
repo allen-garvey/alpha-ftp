@@ -32,7 +32,3 @@ Throughout this README, use of backticks (`) should not be typed, they are used 
 * The server connects to the client on the given port and sends the data line by line (up to the given number of lines indicated in the OK message) in the format `<data>` where <data> is the requested data. If there was a problem retrieving the data, a message in the format `ERROR: <error_message>\n` will be sent instead
 
 * The server will then close the data connection, once it has finished transmitting, and the client will close the control connection once it has received all the data from the server
-
-## License
-
-Alpha-ftp is released under the MIT License. See license.txt for more details.
