@@ -34,7 +34,9 @@
 #define COMMAND_PRELUDE_LENGTH 9
 //length of -l or -g
 #define COMMAND_LENGTH 2
-//CONTROL:\s-l\sa\n
+
+#define DATA_PORT_ERROR -1
+
 /*
  * Error functions
  */
@@ -402,6 +404,42 @@ enum CommandType parseCommand(char messageBuffer[MESSAGE_BUFFER_SIZE]){
   return COMMAND_UNRECOGNIZED;
 }
 
+//parse data port number from message
+//should be in format "TRANSFER: <port_num>\n"
+//returns data port num or DATA_PORT_ERROR if data port is invalid
+int parseDataPortNum(char messageBuffer[MESSAGE_BUFFER_SIZE]){
+  int length = strlen(messageBuffer);
+  //check to make sure message is at least long enough to contain port number
+  // must be at least 
+  if(length < COMMAND_PRELUDE_LENGTH + 2){
+    return DATA_PORT_ERROR;
+  }
+  //initialize variable to hold extracted port number string
+  char portNumRaw[MESSAGE_BUFFER_SIZE];
+  bzero(portNumRaw, MESSAGE_BUFFER_SIZE);
+
+  //copy message buffer into portNum raw, starting with contents after prelude
+  int startIndex = COMMAND_PRELUDE_LENGTH;
+  int i;
+
+  for(i=startIndex;i<MESSAGE_BUFFER_SIZE;i++){
+    char currentChar = messageBuffer[i];
+    //whitespace character indicates end of message
+    if(isspace(currentChar)){
+      break;
+    }
+    //copy into port num raw
+    portNumRaw[i-startIndex] = currentChar;
+  }
+  //convert data port to int
+  int dataPortNum = atoi(portNumRaw);
+  //make sure it is a valid port number
+  if(!isPortNumValid(dataPortNum)){
+    return DATA_PORT_ERROR;
+  }
+  return dataPortNum;
+}
+
 
 int main(int argc, char **argv){
   //get port number from command-line arguments
@@ -439,18 +477,30 @@ int main(int argc, char **argv){
     enum CommandType commandType = parseCommand(messageBuffer);
     if(commandType == COMMAND_UNRECOGNIZED){
       sendToSocket(clientFileDescriptor, "ERROR: Command unrecognized\n");
+      //nothing else to do, as client is supposed to close this connection after receiving error message
+      continue;
     }
-    else if(commandType == COMMAND_LIST){
-      sendDirectoryListing(clientFileDescriptor);
+    //send ok message with length of data to be send
+    if(commandType == COMMAND_LIST){
+      // sendDirectoryListing(clientFileDescriptor);
+      sendDirectoryListingCount(clientFileDescriptor);
     }
-    else if(commandType == COMMAND_GET){
+    //get command
+    else{
       //extract fileName into message buffer
       extractFileName(messageBuffer);
       //copy file name from messageBuffer
       strcpy(fileName, messageBuffer);
-      sendFileContents(clientFileDescriptor, fileName);
+      // sendFileContents(clientFileDescriptor, fileName);
+      sendFileLineCount(clientFileDescriptor, fileName);
     }
+    //get message from client for data transfer port number
+    //should be in format of "TRANSFER: port_num\n"
+    readFromSocketIntoBuffer(clientFileDescriptor, messageBuffer);
+    int dataPortNum = parseDataPortNum(messageBuffer);
 
+
+    //no need to close connection, since client is supposed to do this
   }
 
   //we shouldn't ever reach here, as the only way to quit
